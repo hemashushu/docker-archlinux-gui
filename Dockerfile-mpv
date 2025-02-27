@@ -1,0 +1,10 @@
+FROM archlinux-gui:1.0.0
+
+# Update repository and system.
+RUN pacman -Syu --noconfirm
+
+# Install web browser Firefox.
+RUN pacman -S celluloid --noconfirm
+
+# Default command after starting this container.
+CMD dbus-run-session celluloid
