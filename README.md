@@ -317,10 +317,9 @@ This tutorial explains the principles of running GUI applications directly in co
 
 - https://hub.docker.com/r/hemashushu/archlinux-gui
 - https://hub.docker.com/r/hemashushu/archlinux-gui-firefox
-- https://hub.docker.com/r/hemashushu/archlinux-gui-firefox
 - https://hub.docker.com/r/hemashushu/archlinux-gui-mpv
 - https://hub.docker.com/r/hemashushu/archlinux-gui-devel
-- https://hub.docker.com/r/hemashushu/archlinux-gui-vscode
+- https://hub.docker.com/r/hemashushu/archlinux-gui-vscode-oss
 
 ## Repositories
 
