@@ -89,4 +89,4 @@ docker run \
   -e GTK_IM_MODULE=fcitx \
   -e XMODIFIERS=@im=fcitx \
   -e QT_IM_MODULE=fcitx \
-  archlinux-gui-firefox:1.0.0
+  archlinux-gui-firefox:1.1.0
