@@ -1,4 +1,4 @@
-FROM archlinux-gui:1.1.0
+FROM archlinux-gui:1.2.0
 
 # Update repository and system.
 RUN pacman -Syu --noconfirm

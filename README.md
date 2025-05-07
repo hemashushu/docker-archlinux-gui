@@ -1,14 +1,18 @@
 # How to Run GUI Applications Directly in Containers
 
-This tutorial introduces a method for running GUI applications directly in containers (such as Docker and Podman) without installing any additional software.
+This tutorial introduces a method for running GUI applications directly in containers (such as Docker and Podman) without requiring the installation of additional software.
 
 **Why Run GUI Applications Inside Containers?**
 
 - The source of the GUI application is untrusted, or its safety is uncertain.
-- You want to try a GUI application without installing it on your existing system and ensure no files or data remain after you finish using it (i.e., keep your system clean).
-- The GUI application is not available in your OS's package repository, and the official software package does not have a version compatible with your current distribution. For example, the application only provides an Ubuntu package, but your distribution is Arch Linux or NixOS.
 
-_Table of content_
+> Note: Containers are not designed to be security sandboxes. Avoid running untrusted applications in critical environments using this method.
+
+- You want to try a GUI application without installing it on your system, ensuring no files or data remain after use (i.e., keeping your system clean).
+
+- The GUI application is unavailable in your OS's package repository, or the official software package is incompatible with your current distribution. For example, the application may only provide an Ubuntu package, but your distribution is Arch Linux or NixOS.
+
+**Table of content**
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=2 depthTo=4 orderedList=false} -->
 
@@ -267,8 +271,8 @@ RUN pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly
 # Install extra fonts, e.g. CJK fonts.
 RUN pacman -S ttf-dejavu noto-fonts-cjk --noconfirm
 
-# Change the permission of XDG_RUNTIME_DIR.
-RUN chmod 700 /tmp
+# (Optional) Change the permission of XDG_RUNTIME_DIR.
+# RUN chmod 700 /tmp
 
 # Change the work directory.
 WORKDIR /root

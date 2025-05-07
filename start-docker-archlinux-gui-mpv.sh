@@ -14,4 +14,4 @@ docker run \
   -e GTK_IM_MODULE=fcitx \
   -e XMODIFIERS=@im=fcitx \
   -e QT_IM_MODULE=fcitx \
-  archlinux-gui-mpv:1.1.0
+  archlinux-gui-mpv:1.2.0

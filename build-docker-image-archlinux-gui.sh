@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker build -t archlinux-gui:1.1.0 .
+docker build -t archlinux-gui:1.2.0 .

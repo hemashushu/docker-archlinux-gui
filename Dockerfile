@@ -20,7 +20,7 @@ RUN pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly
 RUN pacman -S ttf-dejavu noto-fonts-cjk --noconfirm
 
 # Change the permission of XDG_RUNTIME_DIR.
-RUN chmod 700 /tmp
+# RUN chmod 700 /tmp
 
 # Change the work directory.
 WORKDIR /root
