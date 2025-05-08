@@ -311,20 +311,24 @@ e.g.
 `docker build -t archlinux-gui:1.0.0 -f Dockerfile .`
 `docker build -t archlinux-gui-firefox:1.0.0 -f Dockerfile-firefox .`
 
-## Learn more
+## Further Reading
 
-This tutorial explains the principles of running GUI applications directly in containers, the script to start the container, and how to build images for GUI applications. If you want to go further, such as building a development environment for GUI applications or running development tools like VSCode, you can refer to [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel).
+This tutorial covers the principles of running GUI applications directly in containers, how to create a script to start the container, and the process of building images for GUI applications. If you're interested in exploring further, such as setting up a development environment for GUI applications or running development tools like VSCode and JetBrains IDEs in containers, refer to the repository [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel).
+
+## Repositories
+
+Here are some related repositories for further exploration:
+
+- [docker-archlinux-gui](https://github.com/hemashushu/docker-archlinux-gui)
+- [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel)
+- [docker-ubuntu-gui-devel](https://github.com/hemashushu/docker-ubuntu-gui-devel)
 
 ## Images
+
+While it is recommended to build the images locally using the scripts provided in this repository (as the image sizes are relatively large), you can also pull prebuilt images from Docker Hub for a quicker setup:
 
 - [archlinux-gui](https://hub.docker.com/r/hemashushu/archlinux-gui)
 - [archlinux-gui-firefox](https://hub.docker.com/r/hemashushu/archlinux-gui-firefox)
 - [archlinux-gui-mpv](https://hub.docker.com/r/hemashushu/archlinux-gui-mpv)
 - [archlinux-gui-devel](https://hub.docker.com/r/hemashushu/archlinux-gui-devel)
 - [archlinux-gui-vscode-oss](https://hub.docker.com/r/hemashushu/archlinux-gui-vscode-oss)
-
-## Repositories
-
-- [docker-archlinux-gui](https://github.com/hemashushu/docker-archlinux-gui)
-- [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel)
-- [docker-ubuntu-gui](https://github.com/hemashushu/docker-ubuntu-gui)
