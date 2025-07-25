@@ -1,54 +1,54 @@
 # How to Run GUI Applications Directly in Containers
 
-This tutorial introduces a method for running GUI applications directly in containers (such as Docker and Podman) without requiring the installation of additional software.
+This tutorial explains how to run GUI applications directly inside containers (such as Docker or Podman) without installing extra software on your host system.
 
 **Why Run GUI Applications Inside Containers?**
 
 - The source of the GUI application is untrusted, or its safety is uncertain.
 
-> Note: Containers are not designed to be security sandboxes. Avoid running untrusted applications in critical environments using this method.
+> Note: Containers are not designed to be security sandboxes. Do not run untrusted applications in critical environments using this method.
 
 - You want to try a GUI application without installing it on your system, ensuring no files or data remain after use (i.e., keeping your system clean).
 
-- The GUI application is unavailable in your OS's package repository, or the official software package is incompatible with your current distribution. For example, the application may only provide an Ubuntu package, but your distribution is Arch Linux or NixOS.
+- The GUI application is not available in your OS's package repository, or the official package is incompatible with your current distribution. For example, the application may only provide an Ubuntu package, but your distribution is Arch Linux or NixOS.
 
-**Table of content**
+**Table of Contents**
 
 <!-- @import "[TOC]" {cmd="toc" depthFrom=2 depthTo=4 orderedList=false} -->
 
 <!-- code_chunk_output -->
 
 - [Requirements](#requirements)
-- [Quick start](#quick-start)
-- [How does it work?](#how-does-it-work)
-- [Custom launch script](#custom-launch-script)
-  - [Basic parameters](#basic-parameters)
-- [Graphical related parameters](#graphical-related-parameters)
-  - [Sound related parameters](#sound-related-parameters)
-  - [Map host's directories](#map-hosts-directories)
+- [Quick Start](#quick-start)
+- [How Does It Work?](#how-does-it-work)
+- [Custom Launch Script](#custom-launch-script)
+  - [Basic Parameters](#basic-parameters)
+- [Graphical Related Parameters](#graphical-related-parameters)
+  - [Sound Related Parameters](#sound-related-parameters)
+  - [Map Host's Directories](#map-hosts-directories)
   - [Map X11](#map-x11)
-  - [Input method (IME) related environment variables](#input-method-ime-related-environment-variables)
-  - [The complete launch script](#the-complete-launch-script)
-- [Build images](#build-images)
-- [Learn more](#learn-more)
-- [Images](#images)
+  - [Input Method (IME) Related Environment Variables](#input-method-ime-related-environment-variables)
+  - [The Complete Launch Script](#the-complete-launch-script)
+- [Build Images](#build-images)
+- [Further Reading](#further-reading)
 - [Repositories](#repositories)
+- [Images](#images)
 
 <!-- /code_chunk_output -->
 
 ## Requirements
 
-- Your platform runs a display server using the [Wayland protocol](https://en.wikipedia.org/wiki/Wayland_(protocol)). If you are using a newer version of GNOME or KDE desktop environments, this requirement is likely already met. If your desktop environment is running on the Xorg server, skip to the "Custom Launch Script" section.
+- Your system must run a display server using the [Wayland protocol](https://en.wikipedia.org/wiki/Wayland_(protocol)). If you use a recent version of GNOME or KDE, this is likely already the case. If your desktop environment uses the Xorg server, skip to the "Custom Launch Script" section.
 
-- Your platform runs the [PipeWire](https://en.wikipedia.org/wiki/PipeWire) multimedia framework. For newer versions of Linux distros, this is most likely already the case. If you are unsure, you can continue, as the absence of PipeWire does not affect the startup of most GUI applications.
+- Your system should run the [PipeWire](https://en.wikipedia.org/wiki/PipeWire) multimedia framework. Most modern Linux distributions include this by default. If you are unsure, you can proceed—most GUI applications will still start even if PipeWire is missing.
 
-- Your platform must have the Docker or Podman container manager installed. I recommend using Podman on desktop systems. Compared to Docker, Podman is simpler and more secure. For example, it does not require running as a daemon, avoids complex configurations, and can directly use the currently logged-in user (i.e. unprivileged user) to start the container (the root user in the container is mapped to the current user instead of the host's root user), among other benefits.
+- You must have Docker or Podman installed. Podman is recommended for desktop systems because it is simpler and more secure: it does not require a daemon, avoids complex configuration, and can run containers as the current (unprivileged) user, mapping the container's root user to your user account.
 
-> Since Podman can also use the `docker` command for access, the following code examples uniformly use the `docker` command.
+> Since Podman can also use the `docker` command, all code examples below use `docker` for consistency.
 
-## Quick start
+## Quick Start
 
-Before introducing the specific methods and principles, you can quickly experience starting a GUI application in a container on your machine.
+Before diving into the details, you can quickly try running a GUI application in a container on your machine:
 
 1. Create a script named `start-docker-archlinux-gui-firefox.sh`:
 
@@ -71,33 +71,33 @@ docker run \
 sh start-docker-archlinux-gui-firefox.sh
 ```
 
-This script will pull the image "archlinux-gui-firefox" from "hub.docker.com" and start a container instance.
+This script will pull the `archlinux-gui-firefox` image from Docker Hub and start a container instance.
 
-> If your network access to "hub.docker.com" is slow, you can skip to the "Build Image" section, generate the image locally, and then return here.
+> If your connection to Docker Hub is slow, see the "Build Images" section to build the image locally, then return here.
 
-3. Now you should be able to see a "flash new" Firefox running in the container. Try visiting some video websites, playing music and videos should work fine. You can also try saving web pages to the "Downloads" folder, which is shared with the host's "Downloads" folder.
+3. You should now see a fresh Firefox running in the container. Try visiting video websites—audio and video playback should work. You can also save web pages to the "Downloads" folder, which is shared with your host.
 
-4. Close Firefox, the container will exit and delete all data generated during its runtime (except for the data saved in the "Downloads" folder).
+4. When you close Firefox, the container will exit and delete all data generated during its runtime (except for files saved in the "Downloads" folder).
 
-5. You can try changing "archlinux-gui-firefox:1.0.0" in the above script to "archlinux-gui-mpv:1.0.0". After running it, you should see a media player called "Celluloid" (a software based on mpv). You can try playing some videos with it. If everything goes correctly, it should work fine.
+5. You can also try changing `archlinux-gui-firefox:1.0.0` in the script to `archlinux-gui-mpv:1.0.0`. After running it, you should see the Celluloid media player (based on mpv). Try playing some videos to confirm everything works.
 
-## How does it work?
+## How Does It Work?
 
-When you start a container instance, all you need to do is map the host's Wayland socket and PipeWire socket files into the container, and then set the appropriate environment variables within the container to enable running GUI applications.
+To run GUI applications in a container, you need to map the host's Wayland and PipeWire socket files into the container and set the appropriate environment variables.
 
-Here are the details:
+Details:
 
-The Wayland socket file is located in the user's runtime directory (i.e., the directory pointed to by the environment variable `XDG_RUNTIME_DIR`), and the filename is `${WAYLAND_DISPLAY}`, the full path is similar to `/run/user/1000/wayland-0`, where "1000" is the user ID. This socket serves as a communication channel between Wayland clients (applications) and the Wayland compositor (the display server). Essentially, applications that want to display their graphical output on the screen connect to this socket to communicate with the Wayland compositor.
+- The Wayland socket file is in your runtime directory (pointed to by `XDG_RUNTIME_DIR`), with the filename `${WAYLAND_DISPLAY}`. The full path is typically `/run/user/1000/wayland-0`, where `1000` is your user ID. This socket allows applications to communicate with the Wayland compositor (display server).
 
-Similar to the Wayland socket, the PipeWire socket file is also located in the user's runtime directory, and the file name is `pipewire-0`. When an application wants to play or record audio or video, it connects to this socket to interact with the PipeWire server.
+- The PipeWire socket file is also in your runtime directory, named `pipewire-0`. Applications connect to this socket for audio and video playback or recording.
 
-If you are curious to examine the user's runtime directory, you will also find a socket file called `bus`, which is the [D-Bus](https://en.wikipedia.org/wiki/D-Bus) socket. Applications in the container can send messages to the host through it, but because security configuration is more complex, it is omitted here.
+- You may also see a `bus` socket (for [D-Bus](https://en.wikipedia.org/wiki/D-Bus)), but configuring this securely is complex, so it is omitted here.
 
-## Custom launch script
+## Custom Launch Script
 
-The main purpose of the launch script is to construct the command-line parameters for running the Podman (or Docker) program to map the Wayland socket and PipeWire socket into the container, and to set the corresponding environment variables within the container. Below is a description of each line of parameters, and some additional parameters are added. Feel free to create your own launch script as needed.
+The launch script constructs the command-line parameters for Podman (or Docker) to map the Wayland and PipeWire sockets into the container and set the necessary environment variables. Below is an explanation of each parameter, along with some optional additions. Feel free to adapt the script to your needs.
 
-### Basic parameters
+### Basic Parameters
 
 ```sh
 docker run \
@@ -105,54 +105,47 @@ docker run \
   archlinux-gui-firefox:1.0.0
 ```
 
-These are the basic parameters for starting a container instance:
+- `--rm`: Automatically removes the container when it exits, keeping your system clean.
+- `archlinux-gui-firefox:1.0.0`: The Docker image to use. Docker will use a local image if available, or pull it from Docker Hub (or another registry) if not.
 
-- `--rm`: This option tells Docker to automatically remove the container when it exits, which helps keep your system clean.
-
-- `archlinux-gui-firefox:1.0.0`: This is the name of the Docker image used to create the container. Docker will first check if the image exists locally. If it doesn't, it will attempt to download it from Docker Hub (or another configured registry).
-
-## Graphical related parameters
+## Graphical Related Parameters
 
 `--mount type=bind,source="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}",target="/tmp/${WAYLAND_DISPLAY}"`
 
-Map the host's Wayland socket file (e.g. `/run/user/1000/wayland-0`) to `/tmp/wayland-0` in the container using the `mount` parameter.
+Maps the host's Wayland socket file (e.g., `/run/user/1000/wayland-0`) to `/tmp/wayland-0` in the container.
 
 `-e WAYLAND_DISPLAY=${WAYLAND_DISPLAY}`
 
-Set the environment variable `WAYLAND_DISPLAY` in the container using the `e` parameter to tell the application the current display number.
+Sets the `WAYLAND_DISPLAY` environment variable in the container to specify the display number.
 
 `-e XDG_RUNTIME_DIR=/tmp`
 
-Set the `XDG_RUNTIME_DIR` in the container to inform the application of the user's runtime directory location.
+Sets `XDG_RUNTIME_DIR` in the container to inform applications of the runtime directory location.
 
 `--device /dev/dri`
 
-This option maps the host machine's `/dev/dri` directory into the Docker container. This allows applications running inside the container to use the host's GPU for hardware acceleration.
-
-This is crucial for applications that require high-performance graphics, such as:
+Maps the host's `/dev/dri` directory into the container, allowing applications to use the host GPU for hardware acceleration. This is important for:
 
 - 3D gaming
 - Video playback and encoding
 - Graphics-intensive applications
-- Machine learning applications that use GPUs.
+- Machine learning applications using GPUs
 
-### Sound related parameters
+### Sound Related Parameters
 
 `--mount type=bind,source="${XDG_RUNTIME_DIR}/pipewire-0",target="/tmp/pipewire-0"`
 
-Map the host's PipeWire socket file (e.g. `/run/user/1000/pipewire-0`) to `/tmp/pipewire-0` in the container. Note that PipeWire does not have an environment variable similar to the `WAYLAND_DISPLAY` to specify the current "sound number".
+Maps the host's PipeWire socket file (e.g., `/run/user/1000/pipewire-0`) to `/tmp/pipewire-0` in the container. PipeWire does not use an environment variable like `WAYLAND_DISPLAY` for sound.
 
 `--device /dev/snd`
 
-This options grants the container direct access to the host's sound devices. While some applications may access this device, most applications play sound through frameworks such as PipeWire, PulseAudio, and JACK. Therefore this parameter can also be left unset.
+Grants the container direct access to the host's sound devices. Most applications use frameworks like PipeWire, PulseAudio, or JACK, so this parameter is often optional.
 
-> PipeWire is not only used to play and record sound, it is also suitable for video streaming and recording.
+> PipeWire is used for both audio and video streaming/recording.
 
-### Map host's directories
+### Map Host's Directories
 
-The container's file system is isolated from the host, meaning that, by default the host's directories and files are not accessible within the container. In some cases, however, you might want to share directories between the host and the container. For example, you might want to share the "Downloads" directory so that files downloaded within the container can be saved to the host.
-
-These three `mount` parameters are used to map the host's "Downloads", "Music" and "Videos" directories into the container:
+By default, the container's filesystem is isolated from the host. To share files, you can map host directories into the container. For example, to share your "Downloads", "Music", and "Videos" folders:
 
 ```sh
 docker run \
@@ -163,19 +156,17 @@ docker run \
   ...
 ```
 
-In addition, you might want to store the settings of applications within the container. For example, Firefox saves its settings in the `~/.mozilla` directory. You can map this directory to a location on the host:
+To persist application settings (e.g., Firefox's `~/.mozilla`), map the relevant directory:
 
 `--mount type=bind,source="${HOME}/docker-gui-app-data/.mozilla",target="/root/.mozilla"`
 
-This allows Firefox within the container to retain its settings and avoid starting from a "flash new" state every time.
+This allows Firefox in the container to retain its settings between runs.
 
 ### Map X11
 
-If your desktop environment runs on top of the Xorg server, you need to map X11 into the container. If you are running on top of Wayland but the target GUI application only supports X11, this step is also necessary (the host also needs to have `xwayland` installed to translate Xorg access to Wayland).
+If your desktop uses Xorg, or if the application only supports X11, you need to map X11 into the container. (If using Wayland, but the app only supports X11, you also need `xwayland` on the host.)
 
-Mapping X11 is a bit more complex because it provides multiple sockets similar to the Wayland socket, which are located in the `/tmp/.X11-unix` directory. For example, `/tmp/.X11-unix/X0` is the socket for display number `:0`. You can check the current display number using the `DISPLAY` environment variable (the X window system allows multiple displays to be active on a single machine, each display is identified by a number). Therefore, you need to map the entire `/tmp/.X11-unix` directory instead of a single socket file.
-
-In addition, X11 has a file called `~/.Xauthority`, this file stores "magic cookies" that are used for authentication to ensure that only authorized applications can display windows on your screen. The actual path to this file is set by `${XAUTHORITY}`. However, you cannot map this file directly into the container, it needs to be modified. The following script shows how to copy and modify the Xauthority file and then map the modified version into the container:
+X11 uses multiple sockets in `/tmp/.X11-unix` (e.g., `/tmp/.X11-unix/X0` for display `:0`). Map the entire directory, not just a single socket. X11 also uses an `~/.Xauthority` file for authentication, which must be copied and modified for the container. Example script:
 
 ```sh
 export X11SOCKET_FOLDER=/tmp/.X11-unix
@@ -190,9 +181,7 @@ then
     export DISPLAY=$DISPLAY_CANONICAL
 fi
 
-# Change to allow any host to connect to this X server
-# it's slightly easier to use XAuthority file then
-# command `xhost +SI:localuser:$(id -un)`
+# Allow any host to connect to this X server
 xauth nlist ${DISPLAY} | sed -e 's/^..../ffff/' | uniq | xauth -f ${X11AUTHORITY_FILE} nmerge -
 
 docker run \
@@ -206,9 +195,9 @@ docker run \
   ...
 ```
 
-The specific principles are not detailed here. If you are interested, you can refer to [Short setups to provide X display to container](https://github.com/mviereck/x11docker/wiki/Short-setups-to-provide-X-display-to-container) and [X authentication with cookies and xhost](https://github.com/mviereck/x11docker/wiki/X-authentication-with-cookies-and-xhost-%28%22No-protocol-specified%22-error%29).
+For more details, see [Short setups to provide X display to container](https://github.com/mviereck/x11docker/wiki/Short-setups-to-provide-X-display-to-container) and [X authentication with cookies and xhost](https://github.com/mviereck/x11docker/wiki/X-authentication-with-cookies-and-xhost-%28%22No-protocol-specified%22-error%29).
 
-If you map both Wayland and X11 into the container, you can add these environment variables to the container to make applications inside it prioritize Wayland:
+If you map both Wayland and X11, you can set these environment variables to make applications prefer Wayland:
 
 ```sh
 docker run \
@@ -220,9 +209,9 @@ docker run \
   ...
 ```
 
-### Input method (IME) related environment variables
+### Input Method (IME) Related Environment Variables
 
-If you need to use an input method (IME), such as fcitx or ibus within GUI applications in the container, you need to set these environment variables:
+To use input methods (e.g., fcitx or ibus) in GUI applications inside the container, set these variables:
 
 ```sh
 docker run \
@@ -233,91 +222,89 @@ docker run \
   ...
 ```
 
-### The complete launch script
+### The Complete Launch Script
 
-Here is a launch script with all the above parameters for reference: [start-docker-archlinux-gui-firefox-full.sh](https://github.com/hemashushu/docker-archlinux-gui/raw/refs/heads/main/start-docker-archlinux-gui-firefox-full.sh)
+A full launch script with all parameters is available here: [start-docker-archlinux-gui-firefox-full.sh](https://github.com/hemashushu/docker-archlinux-gui/raw/refs/heads/main/start-docker-archlinux-gui-firefox-full.sh)
 
-> Note: Do not run scripts downloaded from the internet immediately! You should first review the contents of the script to ensure it is safe before running it. If the script is too complex to understand, do not run it unless it is from a trusted source. Of course you can also use an AI to check it for you.
+> Note: Never run scripts from the internet without reviewing them first. If a script is too complex to understand, only run it if it comes from a trusted source. You can also use AI tools to help review scripts.
 
-## Build images
+## Build Images
 
-Now that you know how to launch a container with GUI application support, the next step is to "package" the target application as a Docker image.
+Once you know how to launch a container with GUI support, you can "package" the target application as a Docker image.
 
-The example image "archlinux-gui-firefox" above is actually built on top of the "archlinux-gui" image. The "archlinux-gui" image serves as a basic GUI layer, providing essential packages for GUI applications, such as audio and video decoding plugins and fonts. Specific applications, such as Firefox and mpv, built on this base image can reduce the overall image size.
+The `archlinux-gui-firefox` image is built on top of the `archlinux-gui` base image, which provides essential packages for GUI applications (audio/video plugins, fonts, etc.). Application-specific images (like Firefox or mpv) built on this base image are smaller and more efficient.
 
-Of course you can add layers between the base layer and the application layer. For example, you can build layers such as "GTK" and "Qt" on top of the base layer, so that multiple GTK-based or Qt-based applications can share the same layer, further reducing the size of the applications images.
+You can also add intermediate layers (e.g., GTK or Qt) so that multiple applications can share them, further reducing image size.
 
-Below is the `Dockerfile` for building the "archlinux-gui" image:
+Example `Dockerfile` for `archlinux-gui`:
 
 ```Dockerfile
 FROM archlinux:latest
 
-# (Optional) Add your nearest mirror here, e.g.
+# (Optional) Add your nearest mirror here
 RUN echo 'Server = https://mirrors.aliyun.com/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist.new && \
     echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/$repo/os/$arch' >> /etc/pacman.d/mirrorlist.new && \
     cat /etc/pacman.d/mirrorlist >> /etc/pacman.d/mirrorlist.new && \
     mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak && \
     mv /etc/pacman.d/mirrorlist.new /etc/pacman.d/mirrorlist
 
-# Update repository and system.
+# Update repository and system
 RUN pacman -Syu --noconfirm
 
-# Install audio userspace framework.
+# Install audio userspace framework
 RUN pacman -S pipewire pipewire-audio pipewire-alsa pipewire-pulse pipewire-jack --noconfirm
 
-# Install decoding plugins.
+# Install decoding plugins
 RUN pacman -S gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly --noconfirm
 
-# Install extra fonts, e.g. CJK fonts.
+# Install extra fonts, e.g., CJK fonts
 RUN pacman -S ttf-dejavu noto-fonts-cjk --noconfirm
 
-# (Optional) Change the permission of XDG_RUNTIME_DIR.
+# (Optional) Change the permission of XDG_RUNTIME_DIR
 # RUN chmod 700 /tmp
 
-# Change the work directory.
+# Set working directory
 WORKDIR /root
 
-# Default command after starting this container.
+# Default command
 CMD /usr/bin/bash
 ```
 
-As you can see, this image is built on top of "archlinux:latest", Of course you can also choose images such as [Ubuntu](https://hub.docker.com/_/ubuntu), [Fedora](https://hub.docker.com/_/fedora), [Alpine](https://hub.docker.com/_/alpine), depending on your preference.
+You can also use other base images, such as [Ubuntu](https://hub.docker.com/_/ubuntu), [Fedora](https://hub.docker.com/_/fedora), or [Alpine](https://hub.docker.com/_/alpine), depending on your needs.
 
-Below is the `Dockerfile` for building the "archlinux-gui-firefox" image:
+Example `Dockerfile` for `archlinux-gui-firefox`:
 
 ```Dockerfile
 FROM archlinux-gui:1.0.0
 
-# Update repository and system.
+# Update repository and system
 RUN pacman -Syu --noconfirm
 
-# Install web browser Firefox.
+# Install Firefox
 RUN pacman -S firefox --noconfirm
 
-# Default command after starting this container.
+# Default command
 CMD dbus-run-session firefox
 ```
 
-The contents of these two files are quite straightforward. Please refer to the comments inside for specific meanings.
+The default command uses `dbus-run-session firefox` instead of just `firefox` because most GUI applications rely on D-Bus and need to be launched this way.
 
-It's worth mentioning that the default command for the "archlinux-gui-firefox" image is `dbus-run-session firefox` instead of `firefox`. This is because most GUI applications rely on the D-Bus and need to be launched with `dbus-run-session`.
-
-These files can be obtained from the [docker-archlinux-gui](https://github.com/hemashushu/docker-archlinux-gui) repository. Once downloaded, use the following command to generate the Docker images locally:
+You can find these files in the [docker-archlinux-gui](https://github.com/hemashushu/docker-archlinux-gui) repository. To build the images locally, use:
 
 `docker build -t <IMAGE_NAME>:<IMAGE_TAG> -f <DOCKERFILE_NAME> .`
 
-e.g.
+For example:
 
 `docker build -t archlinux-gui:1.0.0 -f Dockerfile .`
 `docker build -t archlinux-gui-firefox:1.0.0 -f Dockerfile-firefox .`
 
 ## Further Reading
 
-This tutorial covers the principles of running GUI applications directly in containers, how to create a script to start the container, and the process of building images for GUI applications. If you're interested in exploring further, such as setting up a development environment for GUI applications or running development tools like VSCode and JetBrains IDEs in containers, refer to the repository [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel).
+This tutorial covers the basics of running GUI applications in containers, creating launch scripts, and building images. For more advanced topics, such as setting up a development environment or running tools like VSCode and JetBrains IDEs in containers, see [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel).
 
 ## Repositories
 
-Here are some related repositories for further exploration:
+Related repositories for further exploration:
 
 - [docker-archlinux-gui](https://github.com/hemashushu/docker-archlinux-gui)
 - [docker-archlinux-gui-devel](https://github.com/hemashushu/docker-archlinux-gui-devel)
@@ -325,7 +312,7 @@ Here are some related repositories for further exploration:
 
 ## Images
 
-While it is recommended to build the images locally using the scripts provided in this repository (as the image sizes are relatively large), you can also pull prebuilt images from Docker Hub for a quicker setup:
+While building images locally is recommended (since they are large), you can also pull prebuilt images from Docker Hub for convenience:
 
 - [archlinux-gui](https://hub.docker.com/r/hemashushu/archlinux-gui)
 - [archlinux-gui-firefox](https://hub.docker.com/r/hemashushu/archlinux-gui-firefox)
