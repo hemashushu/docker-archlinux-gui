@@ -1,16 +1,15 @@
 # How to Run GUI Applications Directly in Containers
 
-This tutorial explains how to run GUI applications directly inside containers (such as Docker or Podman) without installing extra software on your host system.
+This tutorial explains how to run GUI applications inside containers (such as Docker or Podman) without installing extra software on your host system.
 
 **Why Run GUI Applications Inside Containers?**
 
+- Try a GUI application without installing it on your system, ensuring no files or data remain after use (keeping your system clean).
+- The GUI application is not available in your OS's package repository, or the official package is incompatible with your current distribution.
+- No prebuilt packages for your OS, and source compilation is required, but you want to avoid the hassle of building and installing it.
 - The source of the GUI application is untrusted, or its safety is uncertain.
 
 > Note: Containers are not designed to be security sandboxes. Do not run untrusted applications in critical environments using this method.
-
-- You want to try a GUI application without installing it on your system, ensuring no files or data remain after use (i.e., keeping your system clean).
-
-- The GUI application is not available in your OS's package repository, or the official package is incompatible with your current distribution. For example, the application may only provide an Ubuntu package, but your distribution is Arch Linux or NixOS.
 
 **Table of Contents**
 
@@ -25,11 +24,11 @@ This tutorial explains how to run GUI applications directly inside containers (s
   - [Basic Parameters](#basic-parameters)
 - [Graphical Related Parameters](#graphical-related-parameters)
   - [Sound Related Parameters](#sound-related-parameters)
-  - [Map Host's Directories](#map-hosts-directories)
-  - [Map X11](#map-x11)
+  - [Mapping Host's Directories](#mapping-hosts-directories)
+  - [Mapping X11](#mapping-x11)
   - [Input Method (IME) Related Environment Variables](#input-method-ime-related-environment-variables)
   - [The Complete Launch Script](#the-complete-launch-script)
-- [Build Images](#build-images)
+- [Building Images](#building-images)
 - [Further Reading](#further-reading)
 - [Repositories](#repositories)
 - [Images](#images)
@@ -38,17 +37,17 @@ This tutorial explains how to run GUI applications directly inside containers (s
 
 ## Requirements
 
-- Your system must run a display server using the [Wayland protocol](https://en.wikipedia.org/wiki/Wayland_(protocol)). If you use a recent version of GNOME or KDE, this is likely already the case. If your desktop environment uses the Xorg server, skip to the "Custom Launch Script" section.
+- A system runs a display server using the [Wayland protocol](https://en.wikipedia.org/wiki/Wayland_(protocol)). If you use a recent version of GNOME or KDE, this is likely already the case. If your desktop environment uses the Xorg server, skip to the "Custom Launch Script" section.
 
-- Your system should run the [PipeWire](https://en.wikipedia.org/wiki/PipeWire) multimedia framework. Most modern Linux distributions include this by default. If you are unsure, you can proceed—most GUI applications will still start even if PipeWire is missing.
+- System should runs the [PipeWire](https://en.wikipedia.org/wiki/PipeWire) multimedia framework. Most modern Linux distributions include this by default. If you are unsure, you can proceed—most GUI applications will still start even if PipeWire is missing.
 
-- You must have Docker or Podman installed. Podman is recommended for desktop systems because it is simpler and more secure: it does not require a daemon, avoids complex configuration, and can run containers as the current (unprivileged) user, mapping the container's root user to your user account.
+- Docker or Podman is installed. Podman is recommended for desktop systems because it is simpler and more secure: it does not require a daemon, avoids complex configuration, and can run containers as the current (unprivileged) user, mapping the container's root user to your user account.
 
 > Since Podman can also use the `docker` command, all code examples below use `docker` for consistency.
 
 ## Quick Start
 
-Before diving into the details, you can quickly try running a GUI application in a container on your machine:
+Before diving into the details, you can quickly try running a GUI application in a container:
 
 1. Create a script named `start-docker-archlinux-gui-firefox.sh`:
 
@@ -75,23 +74,29 @@ This script will pull the `archlinux-gui-firefox` image from Docker Hub and star
 
 > If your connection to Docker Hub is slow, see the "Build Images" section to build the image locally, then return here.
 
-3. You should now see a fresh Firefox running in the container. Try visiting video websites—audio and video playback should work. You can also save web pages to the "Downloads" folder, which is shared with your host.
+3. You will see a fresh Firefox running in the container. Try visiting video websites—audio and video playback should work. You can also save web pages to the "Downloads" folder, which is shared with your host.
 
 4. When you close Firefox, the container will exit and delete all data generated during its runtime (except for files saved in the "Downloads" folder).
 
-5. You can also try changing `archlinux-gui-firefox:1.0.0` in the script to `archlinux-gui-mpv:1.0.0`. After running it, you should see the Celluloid media player (based on mpv). Try playing some videos to confirm everything works.
+5. Try to change `archlinux-gui-firefox:1.0.0` in the script to `archlinux-gui-mpv:1.0.0`. After running it, you will see the _Celluloid_ media player (based on mpv). Try playing some videos to confirm everything works.
 
 ## How Does It Work?
 
-To run GUI applications in a container, you need to map the host's Wayland and PipeWire socket files into the container and set the appropriate environment variables.
+In short:
+
+Graphic and audio are passthrough from the container to the host by the host's Wayland and PipeWire socket files (only two files).
 
 Details:
+
+To run GUI applications in a container, you need to map the host's Wayland and PipeWire socket files into the container and set the appropriate environment variables in the container to tell applications where to find these sockets.
 
 - The Wayland socket file is in your runtime directory (pointed to by `XDG_RUNTIME_DIR`), with the filename `${WAYLAND_DISPLAY}`. The full path is typically `/run/user/1000/wayland-0`, where `1000` is your user ID. This socket allows applications to communicate with the Wayland compositor (display server).
 
 - The PipeWire socket file is also in your runtime directory, named `pipewire-0`. Applications connect to this socket for audio and video playback or recording.
 
 - You may also see a `bus` socket (for [D-Bus](https://en.wikipedia.org/wiki/D-Bus)), but configuring this securely is complex, so it is omitted here.
+
+Mapping these socket files into the container by the Docker `--mount` option.
 
 ## Custom Launch Script
 
@@ -143,7 +148,7 @@ Grants the container direct access to the host's sound devices. Most application
 
 > PipeWire is used for both audio and video streaming/recording.
 
-### Map Host's Directories
+### Mapping Host's Directories
 
 By default, the container's filesystem is isolated from the host. To share files, you can map host directories into the container. For example, to share your "Downloads", "Music", and "Videos" folders:
 
@@ -162,7 +167,7 @@ To persist application settings (e.g., Firefox's `~/.mozilla`), map the relevant
 
 This allows Firefox in the container to retain its settings between runs.
 
-### Map X11
+### Mapping X11
 
 If your desktop uses Xorg, or if the application only supports X11, you need to map X11 into the container. (If using Wayland, but the app only supports X11, you also need `xwayland` on the host.)
 
@@ -228,7 +233,7 @@ A full launch script with all parameters is available here: [start-docker-archli
 
 > Note: Never run scripts from the internet without reviewing them first. If a script is too complex to understand, only run it if it comes from a trusted source. You can also use AI tools to help review scripts.
 
-## Build Images
+## Building Images
 
 Once you know how to launch a container with GUI support, you can "package" the target application as a Docker image.
 
